@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>更加优化的导航控制-》左键框选、单位状态控制  使用更简单一些的地形？</title>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #fps {    position: absolute;    right: 20px;    top: 5em;    font-size: 20px;    color: white;/*帧数显示*/
+            text-shadow: 2px 2px 0 black;}
+    </style>
+    <script src="./babylon50.min.js"></script>
+    <!--<script src="./babylon.gui.min.js"></script>-->
+    <script src="./ControlRTS.js"></script>
+    <script src="./recast.js"></script>
+    <script src="./FrameGround2.js"></script>
+</head>
+<body>
+    <canvas id="renderCanvas" touch-action="none"></canvas>
+    <div id="fps" style="z-index: 302;"></div>
+</body>
+<script>
+    var VERSION=1.0,AUTHOR="1113908055@qq.com";
+    var machine,canvas,engine,scene,gl,MyGame={},navigationPlugin,obj_ground={};
+    machine=navigator;
+    canvas = document.getElementById("renderCanvas");
+    engine = new BABYLON.Engine(canvas, true,{ stencil: true ,preserveDrawingBuffer: true,  disableWebGL2Support: false});
+    engine.displayLoadingUI();
+    gl=engine._gl;
+    scene = new BABYLON.Scene(engine);
+    //var advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+    var divFps = document.getElementById("fps");
+    var segs_x=100,segs_z=100;
+    var arr_unit = [];
+    var arr_selected=[];//当前框选的单位
+    var camera0;
+
+    window.onload=beforewebGL;
+    function beforewebGL()
+    {
+        webGLStart();
+    }
+    function webGLStart()
+    {
+        initScene();
+        initArena();
+        //obj_ground={};
+        InitMouse();
+        window.addEventListener("resize", function () {
+            if (engine) {
+                engine.resize();
+                var width=canvas.width;
+                var height=canvas.height;
+                var fov=camera0.fov;//以弧度表示的相机视野角《-这个计算并不准确！！-》尝试改用巨型蒙版方法
+                camera0.pos_kuangbase=new BABYLON.Vector3(-camera0.dis*Math.tan(fov)
+                    , camera0.dis*Math.tan(fov)*height/width, camera0.dis);
+            }
+        },false);
+
+
+        FrameGround.ImportObjGround("../../ASSETS/SCENE/","ObjGround20210427.babylon",webGLStart2,obj_ground,false);
+
+
+    }
+    function webGLStart2()
+    {
+        arr_ground=[obj_ground["ground1"].ground_base];
+        var navmeshParameters = {
+            cs: 0.2,
+            ch: 0.2,
+            walkableSlopeAngle: 90,
+            walkableHeight: 1.0,
+            walkableClimb: 1,
+            walkableRadius: 1,
+            maxEdgeLen: 12.,
+            maxSimplificationError: 1.3,
+            minRegionArea: 8,
+            mergeRegionArea: 20,
+            maxVertsPerPoly: 6,
+            detailSampleDist: 6,
+            detailSampleMaxError: 1,
+        };
+        navigationPlugin.createNavMesh(arr_ground, navmeshParameters);
+        // var navmeshdebug = navigationPlugin.createDebugNavMesh(scene);
+        // navmeshdebug.position = new BABYLON.Vector3(0, 0.01, 0);
+        // navmeshdebug.renderingGroupId=3;
+        // navmeshdebug.myname="navmeshdebug";
+        // var matdebug = new BABYLON.StandardMaterial('matdebug', scene);
+        // matdebug.diffuseColor = new BABYLON.Color3(0.1, 0.2, 1);
+        // matdebug.alpha = 0.2;
+        // navmeshdebug.material = matdebug;
+
+// crowd
+        var crowd = navigationPlugin.createCrowd(40, 0.1, scene);
+        var i;
+        var agentParams = {
+            radius: 0.1,
+            height: 0.2,
+            maxAcceleration: 4.0,
+            maxSpeed: 1.0,
+            collisionQueryRange: 0.5,
+            pathOptimizationRange: 0.0,
+            separationWeight: 1.0};
+
+        for (i = 0; i <20; i++) {
+            var width = 0.20;
+            var id="a_"+i;
+            var agentCube = BABYLON.MeshBuilder.CreateBox("cube_"+id, { size: width, height: width*2 }, scene);
+            //var targetCube = BABYLON.MeshBuilder.CreateBox("cube", { size: 0.1, height: 0.1 }, scene);
+            agentCube.renderingGroupId=3;
+            //targetCube.renderingGroupId=3;
+            //var matAgent = new BABYLON.StandardMaterial('mat2_'+id, scene);
+            //var variation = Math.random();
+            //matAgent.diffuseColor = new BABYLON.Color3(0.4 + variation * 0.6, 0.3, 1.0 - variation * 0.3);
+            //targetCube.material = matAgent;
+            agentCube.material = MyGame.materials.mat_sand;
+            var randomPos = navigationPlugin.getRandomPointAround(new BABYLON.Vector3(20.0, 0.2, 0), 0.5);
+            var transform = new BABYLON.TransformNode();
+            //agentCube.parent = transform;
+            var agentIndex = crowd.addAgent(randomPos, agentParams, transform);
+            //transform.pathPoints=[transform.position];
+            var state={
+                feeling:"free",
+                wanting:"waiting",
+                doing:"standing",
+                being:"none",
+            }
+            arr_unit.push({idx:agentIndex, trf:transform, mesh:agentCube, target:new BABYLON.Vector3(20.0, 2.1, 0)
+                ,data:{state:state,id:id}});
+        }
+        for (i = 0; i <20; i++) {
+            var width = 0.20;
+            var id="b_"+i;
+            var agentCube = BABYLON.MeshBuilder.CreateBox("cube_"+id, { size: width, height: width*2 }, scene);
+            //var targetCube = BABYLON.MeshBuilder.CreateBox("cube", { size: 0.1, height: 0.1 }, scene);
+            agentCube.renderingGroupId=3;
+            //targetCube.renderingGroupId=3;
+            //var matAgent = new BABYLON.StandardMaterial('mat2_'+id, scene);
+            //var variation = Math.random();
+            //matAgent.diffuseColor = new BABYLON.Color3(0.4 + variation * 0.6, 0.3, 1.0 - variation * 0.3);
+            //targetCube.material = matAgent;
+            agentCube.material = MyGame.materials.mat_sand;
+            var randomPos = navigationPlugin.getRandomPointAround(new BABYLON.Vector3(-20.0, 0.2, 0), 0.5);
+            var transform = new BABYLON.TransformNode();
+            //agentCube.parent = transform;
+            var agentIndex = crowd.addAgent(randomPos, agentParams, transform);
+            //transform.pathPoints=[transform.position];
+            var state={
+                feeling:"free",
+                wanting:"waiting",
+                doing:"standing",
+                being:"none",
+            }
+            arr_unit.push({idx:agentIndex, trf:transform, mesh:agentCube, target:new BABYLON.Vector3(-10.0, 1.1, 0)
+                ,data:{state:state,id:id}});
+        }
+        var startingPoint;
+        var currentMesh;
+        var pathLine;
+
+        document.oncontextmenu = function(evt){
+            //点击右键后要执行的代码
+            onContextMenu(evt);
+            return false;//阻止浏览器的默认弹窗行为
+        }
+        function onContextMenu(evt)
+        {
+            var pickInfo = scene.pick(scene.pointerX, scene.pointerY, null, false, MyGame.camera0);
+            if(pickInfo.hit)
+            {
+                var mesh = pickInfo.pickedMesh;
+                //if(mesh.myname=="navmeshdebug")//这是限制只能点击导航网格
+                var startingPoint=pickInfo.pickedPoint;
+                var agents = crowd.getAgents();
+                var len=arr_selected.length;
+                var i;
+                for (i=0;i<len;i++) {//分别指挥被框选中的每个单位
+                    var unit=arr_selected[i];
+                    var agent=agents[unit.idx];
+                    unit.data.state.doing="walking";
+                    crowd.agentGoto(agent, navigationPlugin.getClosestPoint(startingPoint));
+                    //用agentTeleport方法结束寻路？
+                    var pathPoints=navigationPlugin.computePath(crowd.getAgentPosition(agent), navigationPlugin.getClosestPoint(startingPoint));
+                    unit.lastPoint=pathPoints[0];//保留上一个节点，以对比确定是否要减少路径线的节点数量
+                    pathPoints.unshift(unit.trf.position);//将路径的第一个点，替换为运动物体本身
+                    unit.pathPoints=pathPoints;
+
+                    unit.pathLine = BABYLON.MeshBuilder.CreateDashedLines("ribbon_"+unit.idx, {points: unit.pathPoints, updatable: true, instance: unit.pathLine}, scene);
+                    unit.pathLine.renderingGroupId=3;
+                }
+                //var pathPoints = navigationPlugin.computePath(crowd.getAgentPosition(agents[0]), navigationPlugin.getClosestPoint(startingPoint));
+                //pathLine = BABYLON.MeshBuilder.CreateDashedLines("ribbon", {points: pathPoints, updatable: true, instance: pathLine}, scene);
+            }
+
+        }
+        scene.onBeforeRenderObservable.add(()=> {
+            var len = arr_unit.length;
+            //var flag_rest=false;//每个运动群组都要有专属的运动结束标志！！！！
+            for(let i = 0;i<len;i++)
+            {
+                var ag = arr_unit[i];
+                ag.mesh.position = crowd.getAgentPosition(ag.idx);
+                if(ag.data.state.doing=="walking")
+                {
+
+                    let vel = crowd.getAgentVelocity(ag.idx);
+                    crowd.getAgentNextTargetPathToRef(ag.idx, ag.target);//下一个将要前往的节点
+                    if (vel.length() > 0.2)
+                    {
+
+                        vel.normalize();
+                        var desiredRotation = Math.atan2(vel.x, vel.z);
+                        ag.mesh.rotation.y = ag.mesh.rotation.y + (desiredRotation - ag.mesh.rotation.y) * 0.05;
+                        var pos=ag.target;
+                        var posl=ag.lastPoint;
+                        ag.pathPoints[0]=ag.mesh.position;
+                        //console.log(ag.pathPoints[0],pos);
+                        ag.pathLine = BABYLON.MeshBuilder.CreateDashedLines("ribbon_"+ag.idx
+                            , {points: ag.pathPoints, updatable: true, instance: ag.pathLine}, scene);
+                        if(pos&&posl)
+                        {
+                            if(pos.x!=posl.x||pos.y!=posl.y||pos.z!=posl.z)//下一导航点发生变化
+                            {
+                                //console.log(pos,posl);
+                                ag.pathPoints.splice(1,1);
+                                ag.lastPoint=ag.pathPoints[1];
+                                //ag.target.position=ag.lastPoint;
+                                //console.log(ag.pathPoints.length);
+                                // ag.pathLine = BABYLON.MeshBuilder.CreateDashedLines("ribbon_"+ag.idx
+                                //     , {points: ag.pathPoints, updatable: true, instance: ag.pathLine}, scene);
+
+                            }
+                        }
+                        else
+                        {
+                            //console.log(ag);
+
+                        }
+                    }
+                    else {//如果在一帧（1s？）内的移动距离小于它自身的尺寸
+                        //ag.target=ag.mesh.position;
+                        crowd.agentTeleport(ag.idx, ag.mesh.position);
+                        //如果速度太慢，则传送到当前所处的位置，以停止寻路-》遇到堵车怎么办？
+                        ag.data.state.doing=="standing"
+                    }
+                }
+
+            }
+        });
+
+        MyBeforeRender();
+    }
+    // function MyBeforeRender()
+    // {
+    //     scene.registerBeforeRender(
+    //         function(){
+    //         }
+    //     )
+    //     scene.registerAfterRender(
+    //         function() {
+    //         }
+    //     )
+    //     engine.runRenderLoop(function () {
+    //         engine.hideLoadingUI();
+    //         //lastframe=new Date().getTime();
+    //         scene.render();
+    //         if (divFps) {
+    //             divFps.innerHTML = engine.getFps().toFixed() + " fps";
+    //         }
+    //     });
+    // }
+
+    function initScene()
+    {
+        navigationPlugin = new BABYLON.RecastJSPlugin();
+        var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 14, -14), scene);
+        //camera.setTarget(BABYLON.Vector3.Zero());
+        camera.rotation.x=Math.PI/4;//需要45度斜向下视角
+        camera.attachControl(canvas, true);//一开始是默认的自由相机
+        MyGame.camera0=camera;
+        camera0=camera;
+        camera.move=0;//沿轴向的移动距离
+        camera.length0=19.8;//14*Math.pow(2,0.5);
+        camera.dis=3//相机到框选框的距离
+        camera.path_line_kuang=[new BABYLON.Vector3(0, 14, -14),new BABYLON.Vector3(0, -14, -14)];//线框的路径
+        camera.line_kuang= BABYLON.MeshBuilder.CreateDashedLines("line_kuang"
+            , {points: camera.path_line_kuang, updatable: true}, scene);//第一次建立不应有instance！！
+        camera.line_kuang.renderingGroupId=3;
+        camera.line_kuang.parent=camera;
+        camera.line_kuang.isVisible=true;//每次通过instance建立虚线都会继承它？
+        camera.mesh_kuang=new BABYLON.Mesh("mesh_kuang");
+
+        var width=canvas.width;
+        var height=canvas.height;
+        var fov=camera0.fov;//以弧度表示的相机视野角
+        camera.pos_kuangbase=new BABYLON.Vector3(-camera.dis*Math.tan(fov)
+            , camera.dis*Math.tan(fov)*height/width, camera.dis);//线框的左上角基点
+
+
+        var pos2=camera.pos_kuangbase.clone();
+        pos2.x=-pos2.x;
+        camera.path_line_kuang2=[camera.pos_kuangbase,pos2];
+        camera.line_kuang2=BABYLON.MeshBuilder.CreateDashedLines("line_kuang2"
+            , {points: camera.path_line_kuang2, updatable: true, instance: camera.line_kuang2}, scene);
+        camera.line_kuang2.renderingGroupId=3;
+        camera.line_kuang2.parent=camera;
+        var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+        light.intensity = 0.7;
+    }
+    function initArena()
+    {
+        var skybox = BABYLON.Mesh.CreateBox("skyBox", 1500.0, scene);//尺寸存在极限，设为15000后显示异常
+        var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("../../ASSETS/IMAGE/SKYBOX/skybox", scene);
+        skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+        skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.disableLighting = true;
+        skybox.material = skyboxMaterial;
+        skybox.renderingGroupId = 1;
+        skybox.isPickable=false;
+        skybox.infiniteDistance = true;
+
+        MyGame.materials={};
+        //额外要用到的一些材质
+        var mat_grass=FrameGround.CreateGroundMaterial0("mat_grass","../../ASSETS/IMAGE/LANDTYPE/grass.jpg",segs_x,segs_z);
+        //this.obj_mat.mat_grass=mat_grass;
+        var mat_tree=FrameGround.CreateGroundMaterial0("mat_tree","../../ASSETS/IMAGE/LANDTYPE/yulin.png",segs_x,segs_z);
+        //this.obj_mat.mat_tree=mat_tree;
+        var mat_shallowwater=FrameGround.CreateGroundMaterial0("mat_shallowwater","../../ASSETS/IMAGE/LANDTYPE/lake.png",segs_x,segs_z);
+        //this.obj_mat.mat_shallowwater=mat_shallowwater;
+        var mat_sand=FrameGround.CreateGroundMaterial0("mat_sand","../../ASSETS/IMAGE/LANDTYPE/sand.jpg",segs_x,segs_z);
+        //this.obj_mat.mat_sand=mat_sand;
+        var mat_terre=FrameGround.CreateGroundMaterial0("mat_terre","../../ASSETS/IMAGE/LANDTYPE/terre.png",segs_x,segs_z);
+        //this.obj_mat.mat_terre=mat_terre;
+
+    }
+</script>
+</html>
