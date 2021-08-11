@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>在显示线程(主线程)中引入Babylon.js</title>
+    <!--主线程要负责各个引擎之间的联系，负责dom渲染和事件，负责3D渲染，负责全局初始化，负责动画计时-->
+    <style>
+        body{    margin: 0;    padding: 0;    border: 0;    text-align: center;    overflow: hidden;width: 100%;
+            height: 100%;position: fixed;    font-family: verdana,arial,sans-serif;    touch-action: none;
+            -ms-touch-action: none;font-size: 12px;min-width: 600px;}
+        ul {    list-style: none;    margin: 0;    padding: 0;}
+        li{    list-style: none;    margin: 0;    padding: 0;}
+        ul li {    float: left;}
+        button{    cursor: pointer;}
+        a:link{    text-decoration: none;}
+        #div_allbase{min-height: 500px;min-width: 750px;height: 100%;width:100%;position: relative;overflow-x:hidden;overflow-y: hidden;}
+        #renderCanvas {    width: 100%;    height: 90%;    outline: none;}
+        #fps {    position: absolute;    right: 20px;    top: 5em;    font-size: 20px;    color: white;/*帧数显示*/
+            text-shadow: 2px 2px 0 black;}
+        #div_control {    width: 100%;    height: 10%;    outline: none;position: relative}
+        #div_left .btn_control{height: 23px;width: 23px;float: left;margin-top: 2px;margin-left: 2px}
+        #div_right .btn_control{height: 23px;width: 23px;float: right;margin-top: 2px;margin-right: 2px}
+    </style>
+    <script src="babylon50.min.js"></script>
+    <!--<script src="../../JS/MYLIB/newland.js"></script>-->
+    <script src="newland.js"></script>
+    <script src="One.js"></script>
+    <!--<script src="Dic.js"></script>-->
+    <script src="VTools.js"></script>
+    <!--<script src="OneRender.js"></script>-->
+    <script src="ControlRTS3.js"></script>
+    <script src="FrameGround2.js"></script>
+    <script src="recast.js"></script>
+</head>
+<body>
+<div id="div_allbase">
+    <canvas id="renderCanvas"></canvas>
+    <div id="fps" style="z-index: 302;"></div>
+    <div id="div_control" >
+        <div id="div_left" style="left:0px;bottom: 0px;position: absolute;height: 100%;width: 250px">
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+        </div>
+        <div id="div_right" style="right:0px;bottom: 0px;position: absolute;height: 100%;width: 250px">
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+            <button class="btn_control"></button>
+        </div>
+        <div id="div_middle" style="right:250px;left:250px;height: 100%;position: absolute;text-align: center"></div>
+    </div>
+</div>
+</body>
+<script>
+    //全局变量堆放区
+    var VERSION=0.1,AUTHOR="1113908055@qq.com";
+
+    var canvas=document.getElementById("renderCanvas");
+    var divFps=document.getElementById("fps");
+    var div_left=document.getElementById("div_left");
+    var arr_btn_left=div_left.getElementsByTagName("button");
+    var div_right=document.getElementById("div_right");
+    var arr_btn_right=div_right.getElementsByTagName("button");
+    var div_middle=document.getElementById("div_middle");
+
+    var worker,MyGame={},machine=navigator,navigationPlugin,obj_ground={};
+    var segs_x=100,segs_z=100;
+    var arr_unit = [];
+    var arr_selected=[];//当前框选的单位
+
+    var engine = new BABYLON.Engine(canvas, true);
+    engine.displayLoadingUI();
+    var gl=engine._gl;//决定在这里结合使用原生OpenGL和Babylon.js;
+    var scene = new BABYLON.Scene(engine);
+    var obj_global={};
+    var obj_mat={};
+    var camera0,light0;
+
+    var div_left=document.getElementById("div_left");
+    var arr_btn_left=div_left.getElementsByTagName("button");
+    var div_right=document.getElementById("div_right");
+    var arr_btn_right=div_right.getElementsByTagName("button");
+    var div_middle=document.getElementById("div_middle");
+    var obj_png={};
+    var obj_owners={};
+
+</script>
+<script>
+    //console.log("b"+new Date().getTime());
+    window.onload=beforeInit;
+    function beforeInit()
+    {
+        var can_source=document.createElement("canvas");
+        var img=new Image();
+        img.src="ASSETS/002.png";
+        img.onload=function(){
+            width=img.width;
+            height=img.height;
+            can_source.style.width=width+"px";
+            can_source.style.height=height+"px";
+            can_source.width=width;
+            can_source.height=height;
+            var con_source=can_source.getContext("2d");
+            con_source.drawImage(img,0,0);
+
+            for(var i=0;i<9;i++)//用不同颜色区分不同势力
+            {
+                con_source.beginPath()
+                con_source.fillStyle="red";
+                con_source.arc(64+i*128,8,8,0,Math.PI*2,true);
+                con_source.closePath();
+                con_source.fill();
+            }
+            obj_png.a=can_source.toDataURL();
+            for(var i=0;i<9;i++)
+            {
+                con_source.beginPath()
+                con_source.fillStyle="blue";
+                con_source.arc(64+i*128,8,8,0,Math.PI*2,true);
+                con_source.closePath();
+                con_source.fill();
+            }
+            obj_png.b=can_source.toDataURL();
+            Init();
+        }
+
+
+    }
+    var obj_units={};//用id索引所有单位
+    var obj_unitclassed={};//用class索引所有单位类型《-这个数据对象还是放在这里比较好，如果放在其他文件里则难以记住对象名！！
+    var flag_runningstate="等待初始化";//系统总体运行状态（未用到）
+    var count_init=2;
+    var flag_autorun=false;//是否自动运行，默认非自动运行，点击一次“步进”按钮计算一次。
+    function initAssets()
+    {
+
+
+    }
+    function initScene()
+    {
+        navigationPlugin = new BABYLON.RecastJSPlugin();
+        var camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 14, -14), scene);
+        //camera.setTarget(BABYLON.Vector3.Zero());
+        camera.rotation.x=Math.PI/4;//需要45度斜向下视角
+        camera.attachControl(canvas, true);//一开始是默认的自由相机
+        MyGame.camera0=camera;
+        camera0=camera;
+        camera.minZ=0.01;
+        camera.move=0;//沿轴向的移动距离
+        camera.length0=19.8;//14*Math.pow(2,0.5);
+        camera.dis=3//相机到框选框的距离
+        camera.path_line_kuang=[new BABYLON.Vector3(0, 14, -14),new BABYLON.Vector3(0, -14, -14)];//线框的路径
+        camera.line_kuang= BABYLON.MeshBuilder.CreateDashedLines("line_kuang"
+            , {points: camera.path_line_kuang, updatable: true}, scene);//第一次建立不应有instance！！
+        camera.line_kuang.renderingGroupId=3;
+        camera.line_kuang.parent=camera;
+        camera.line_kuang.isVisible=true;//每次通过instance建立虚线都会继承它？
+        camera.mesh_kuang=new BABYLON.Mesh("mesh_kuang");
+
+        camera0.mesh_kuang0 = new BABYLON.MeshBuilder.CreatePlane("mesh_kuang0"
+            , {width: 100, height: 100, sideOrientation: BABYLON.Mesh.DOUBLESIDE}, scene);
+        camera0.mesh_kuang0.parent = camera0;
+        camera0.mesh_kuang0.renderiGroupId = 0;//不可见，但要可pick
+        camera0.mesh_kuang0.position.z=3
+        camera0.mesh_kuang0.rotation.x = Math.PI;
+
+        var light0 = new BABYLON.HemisphericLight("light0", new BABYLON.Vector3(0, 1, 0), scene);
+        light0.diffuse = new BABYLON.Color3(1,1,1);//这道“颜色”是从上向下的，底部收到100%，侧方收到50%，顶部没有
+        light0.specular = new BABYLON.Color3(0,0,0);
+        light0.groundColor = new BABYLON.Color3(1,1,1);//这个与第一道正相反
+        //var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+        //light.intensity = 0.7;
+
+
+    }
+    function initArena()
+    {
+        var skybox = BABYLON.Mesh.CreateBox("skyBox", 1500.0, scene);//尺寸存在极限，设为15000后显示异常
+        var skyboxMaterial = new BABYLON.StandardMaterial("skyBox", scene);
+        skyboxMaterial.backFaceCulling = false;
+        skyboxMaterial.reflectionTexture = new BABYLON.CubeTexture("../../ASSETS/IMAGE/SKYBOX/skybox", scene);
+        skyboxMaterial.reflectionTexture.coordinatesMode = BABYLON.Texture.SKYBOX_MODE;
+        skyboxMaterial.diffuseColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+        skyboxMaterial.disableLighting = true;
+        skybox.material = skyboxMaterial;
+        skybox.renderingGroupId = 1;
+        skybox.isPickable=false;
+        skybox.infiniteDistance = true;
+
+        MyGame.materials={};
+        //额外要用到的一些材质
+        var mat_grass=FrameGround.CreateGroundMaterial0("mat_grass","../../ASSETS/IMAGE/LANDTYPE/grass.jpg",segs_x,segs_z);
+        //this.obj_mat.mat_grass=mat_grass;
+        var mat_tree=FrameGround.CreateGroundMaterial0("mat_tree","../../ASSETS/IMAGE/LANDTYPE/yulin.png",segs_x,segs_z);
+        //this.obj_mat.mat_tree=mat_tree;
+        var mat_shallowwater=FrameGround.CreateGroundMaterial0("mat_shallowwater","../../ASSETS/IMAGE/LANDTYPE/lake.png",segs_x,segs_z);
+        mat_shallowwater.wireframe=true;
+        //this.obj_mat.mat_shallowwater=mat_shallowwater;
+        var mat_sand=FrameGround.CreateGroundMaterial0("mat_sand","../../ASSETS/IMAGE/LANDTYPE/sand.jpg",segs_x,segs_z);
+        //this.obj_mat.mat_sand=mat_sand;
+        var mat_terre=FrameGround.CreateGroundMaterial0("mat_terre","../../ASSETS/IMAGE/LANDTYPE/terre.png",segs_x,segs_z);
+        //this.obj_mat.mat_terre=mat_terre;
+
+    }
+
+    function webGLStart2()
+    {
+        var arr_ground=[obj_ground["ground1"].ground_base];
+        var navmeshParameters = {
+            cs: 0.2,
+            ch: 0.2,
+            walkableSlopeAngle: 90,
+            walkableHeight: 1.0,
+            walkableClimb: 1,
+            walkableRadius: 1,
+            maxEdgeLen: 12.,
+            maxSimplificationError: 1.3,
+            minRegionArea: 8,
+            mergeRegionArea: 20,
+            maxVertsPerPoly: 6,
+            detailSampleDist: 6,
+            detailSampleMaxError: 1,
+        };
+        navigationPlugin.createNavMesh(arr_ground, navmeshParameters);
+        //用来显示导航网格，实际使用时隐藏导航网格
+        // var navmeshdebug = navigationPlugin.createDebugNavMesh(scene);
+        // navmeshdebug.position = new BABYLON.Vector3(0, 0.01, 0);
+        // navmeshdebug.renderingGroupId=3;
+        // navmeshdebug.myname="navmeshdebug";
+        // var matdebug = new BABYLON.StandardMaterial('matdebug', scene);
+        // matdebug.diffuseColor = new BABYLON.Color3(0.1, 0.2, 1);
+        // matdebug.alpha = 0.2;
+        // navmeshdebug.material = matdebug;
+
+// crowd
+        var crowd = navigationPlugin.createCrowd(2000, 0.1, scene);//按这样设置，则导航计算也是由渲染线程负责！！
+        MyGame.crowd=crowd;
+        var agentParams = {
+            radius: 0.1,//将外观显示设为0.2
+            height: 0.2,
+            maxAcceleration: 4.0,
+            maxSpeed: 1.0,
+            collisionQueryRange: 0.5,
+            pathOptimizationRange: 0.0,
+            separationWeight: 1.0};
+        MyGame.agentParams=agentParams;
+        //initThem
+        var spriteManagerPlayerA = new BABYLON.SpriteManager("playerManagerA", obj_png.a, 200, 128, scene);
+        spriteManagerPlayerA.isPickable = true;
+        spriteManagerPlayerA.renderingGroupId=2;
+        MyGame.spriteManagerPlayerA=spriteManagerPlayerA;
+        var spriteManagerPlayerB = new BABYLON.SpriteManager("playerManagerB", obj_png.b, 200, 128, scene);
+        spriteManagerPlayerB.isPickable = true;
+        spriteManagerPlayerB.renderingGroupId=2;
+        MyGame.spriteManagerPlayerB=spriteManagerPlayerB;
+        obj_owners={a:spriteManagerPlayerA,b:spriteManagerPlayerB}
+
+        // var spriteManagerPlayerK = new BABYLON.SpriteManager("spriteManagerPlayerK", "ASSETS/kuang3.png", 400, 64, scene);
+        // spriteManagerPlayerK.isPickable = false;
+        // spriteManagerPlayerK.renderingGroupId=3;
+        // MyGame.spriteManagerPlayerK=spriteManagerPlayerK;
+        var mat_frame = new BABYLON.StandardMaterial("mat_frame", scene);
+        mat_frame.wireframe = true;
+        var mesh_k1 = BABYLON.MeshBuilder.CreatePlane("mesh_k1", {height:1,width:1}, scene);
+        //var mesh_k1=new BABYLON.MeshBuilder.CreateBox("mesh_k1",{},scene);
+        mesh_k1.renderingGroupId=2;
+        mesh_k1.isVisible=false;
+        mesh_k1.material=mat_frame;
+        mesh_k1.billboardMode=BABYLON.Mesh.BILLBOARDMODE_ALL;
+        MyGame.mesh_k1=mesh_k1;
+        One.createRandomThem(obj_units,200);
+
+        initWorker();
+
+        console.log("渲染初始化完成");
+        count_init--;
+        if(count_init==0)
+        {
+            flag_runningstate="初始化完成";
+        }
+        engine.hideLoadingUI();
+
+        arr_btn_left[0].innerHTML="L";
+        arr_btn_left[0].onclick=function(){
+            worker.postMessage(JSON.stringify({type:"command",func:"Loop",obj_p:null}));
+        }
+
+        MyBeforeRender();
+        //scene.debugLayer.show();
+    }
+    function initWorker()
+    {
+        //initWorker
+        console.log("开始启动work线程");
+        worker = new Worker("WORK/worker.js");
+        //这里需要吧One整理为更易传播的对象？《-是的
+        var obj_units0=One.obj2data(obj_units);
+        worker.postMessage(JSON.stringify({type:"initWork",obj_units0:obj_units0}));
+        worker.onmessage=function(e)
+        {
+            var obj_data=JSON.parse(e.data)
+            if(obj_data.type=="consoleLog")
+            {
+                console.log(obj_data.text);
+            }
+            else if(obj_data.type=="consoleError")
+            {
+                console.error(obj_data.text);
+            }
+            else if(obj_data.type=="workInited")
+            {//
+                console.log("逻辑初始化完成");
+                count_init--;
+                // scene.onBeforeRenderObservable.add(()=> {//每一帧把导航物体的运动状态同步给逻辑线程
+                //     var len = arr_unit.length;
+                //     //var flag_rest=false;//每个运动群组都要有专属的运动结束标志！！！！
+                //     var obj_send={};
+                //     for(let i = 0;i<len;i++)
+                //     {
+                //         var unit = arr_unit[i];
+                //         unit.trf.position = MyGame.crowd.getAgentPosition(unit.idx);
+                //         unit.pos={x:unit.trf.position.x,y:unit.trf.position.y,z:unit.trf.position.z}
+                //         if(unit.data.state.doing!="dead")//如果这个单位在运动，则要把单位的信息同步给逻辑线程
+                //         {
+                //             obj_send[unit.id]=unit
+                //
+                //         }
+                //
+                //     }
+                //     var obj_units0=One.obj2data(obj_send);
+                //     worker.postMessage(JSON.stringify({type:"updateUnits",obj_units0:obj_units0}));
+                // });
+
+                if(count_init==0)
+                {
+                    flag_runningstate="初始化完成";
+
+                }
+            }
+            else if(obj_data.type=="updateUnits")//hp等量的变化与前端的动画帧计时关系很大，所以应该用前端渲染更新后端逻辑？！
+            {
+                var obj_units0=obj_data.obj_units0;
+                for(var key in obj_units0)
+                {
+                    var obj0=obj_units0[key];//从Think线程传递过来的新状态
+                    var obj=obj_units[key];
+                    //obj.pos=obj0.pos;//位置变化由渲染线程计算
+                    obj.radius=obj0.radius;
+                    obj.view=obj0.view;
+                    obj.hp=obj0.hp;
+                    obj.at=obj0.at;
+                    obj.owner=obj0.owner;
+                    obj.influence=obj0.influence;
+                    obj.arr_history.push(obj0);
+                }
+                console.log("完成一次计算："+(new Date().getTime()));//obj_data.frameTime
+            }
+            else if(obj_data.type=="unitCommand")//收到逻辑线程传来命令，一般是触发动画效果和导航效果
+            {
+                var obj_units0=obj_data.obj_units0;
+                for(var key in obj_units0)//对于每一个带有命令的单位
+                {
+                    var obj0=obj_units0[key];//从Think线程传递过来的新状态
+                    var obj=obj_units[key];
+                    var arr_c=obj0.arr_command;//对于这个单位携带的每一条命令
+                    var len=arr_c.length;
+                    for(var i=0;i<len;i++)
+                    {
+                        var command=arr_c[i];
+                        //var func=eval(command.func)
+                        obj[command.func] (command.obj_p);
+                    }
+                }
+                //console.log("count_a:"+obj_data.count_a);
+            }
+        }
+    }
+
+    function Init()
+    {
+        initAssets();//准备图片、场景、音频、着色器等
+        initScene();
+        initArena();
+        InitMouse();
+        FrameGround.ImportObjGround("../../ASSETS/SCENE/","ObjGround20210427.babylon",webGLStart2,obj_ground,false);
+
+        //scene.debugLayer.show();
+
+    }
+
+
+    function runOneStep(){//遍历每个unit并决定它要做的事，runLoop也要调用这个方法，暂时把思考、行动、渲染放在同步的帧里，思考频率、移动速度、单位大小要相互和谐，以正常移动避免碰撞为标准
+        worker.postMessage(JSON.stringify({type:"command",func:"runOneStep",obj_p:null}));
+        
+        // renderMap();//渲染
+    }
+
+    function runLoop(){
+        worker.postMessage(JSON.stringify({type:"setValue",key:"flag_autorun",value:true}));
+        //flag_autorun=true;
+    }
+    function stopRunLoop(){
+        worker.postMessage(JSON.stringify({type:"setValue",key:"flag_autorun",value:false}));
+        //flag_autorun=false;
+    }
+    //var lastframe=new Date().getTime();
+    function Loop()
+    {
+        worker.postMessage(JSON.stringify({type:"command",func:"Loop",obj_p:null}));
+        // if(flag_autorun)
+        // {
+        //     runOneStep();
+        //     var thisframe=new Date().getTime();
+        //     console.log(thisframe-lastframe,"red:"+obj_owners.red.countAlive,"blue:"+obj_owners.blue.countAlive);
+        //     lastframe=thisframe;
+        // }
+        // window.requestAnimationFrame(function(){Loop()});
+    }
+
+
+</script>
+</html>

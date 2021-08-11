@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>建立用于精灵动画的方块图列</title>
+</head>
+<body>
+<div id="div_allbase" ><!--style="border:1px solid #888888;width: 1282px;height: 386px"-->
+    <canvas id="renderCanvas" width="1280" height="384" style="width: 1280px;height: 384px;border:1px solid #888888;padding: 0px;margin: 0px"></canvas>
+</div>
+</body>
+<script>
+    var canvas=document.getElementById("renderCanvas");
+    var ctx=canvas.getContext("2d");
+    var count_draw=0;
+    var oX=0;
+    var oY=0;
+    ctx.fillStyle="rgba(255,255,255,0)";
+    ctx.strokeStyle="#222222";
+    ctx.fillRect(0,0,1280,384);
+    //ctx.beginPath();
+
+    ctx.oArc=function(x,y,r,sAngle,eAngle,counterclockwise)
+    {
+        ctx.arc(x+oX,y+oY,r,sAngle,eAngle,counterclockwise)
+    }
+    ctx.oMoveTo=function(x,y)
+    {
+        ctx.moveTo(x+oX,y+oY);
+    }
+    ctx.oLineTo=function(x,y)
+    {
+        ctx.lineTo(x+oX,y+oY);
+    }
+    ctx.oRect=function(x,y,width,height)
+    {
+        ctx.rect(x+oX,y+oY,width,height);
+    }
+
+
+//绘制一个二维的小人儿，角度采用顺时针，头位置，头左右转动，头上下俯仰，身体倾斜,左上臂角度,,,,左大腿角度
+    function DrawaMan(phx,phy,ahy,ahz,ab,alh1,alh2,arh1,arh2,alf1,alf2,arf1,arf2)
+    {
+        ctx.beginPath();
+        oX=count_draw%10*128;
+        oY=Math.floor(count_draw/10)*128;
+
+        var obj_aman={ph:{x:phx,y:phy}};
+        var rh=5;//头半径
+        var lb=20;//身长
+        var lh1=8;//
+        var lh2=8;//
+        var lf1=10;//
+        var lf2=10;//
+        ctx.oArc(phx,phy,rh,0,Math.PI*2);
+        ctx.stroke();
+        //暂时不画眼睛，这样ahy,ahz暂时没有直接作用
+        var x1=phx,y1=phy+rh;
+        var x2,y2,x3,y3;
+        ctx.oMoveTo(x1,y1);
+        obj_aman.pb1={x:x1,y:y1};
+        x2=x1-lb*Math.sin(ab);
+        y2=y1+lb*Math.cos(ab);
+        ctx.oLineTo(x2,y2);
+        obj_aman.pb2={x:x2,y:y2};
+        ctx.stroke();
+
+        ctx.oMoveTo(x1,y1);
+        x2=x1-lh1*Math.sin(ab+alh1);
+        y2=y1+lh1*Math.cos(ab+alh1);
+        ctx.oLineTo(x2,y2);
+        obj_aman.plh1={x:x2,y:y2};
+        ctx.stroke();
+
+        ctx.oMoveTo(x2,y2);
+        x3=x2-lh2*Math.sin(ab+alh1+alh2);
+        y3=y2+lh2*Math.cos(ab+alh1+alh2);
+        ctx.oLineTo(x3,y3);
+        obj_aman.plh2={x:x3,y:y3};
+        ctx.stroke();
+
+        ctx.oMoveTo(x1,y1);
+        x2=x1-lh1*Math.sin(ab+arh1);
+        y2=y1+lh1*Math.cos(ab+arh1);
+        ctx.oLineTo(x2,y2);
+        obj_aman.prh1={x:x2,y:y2};
+        ctx.stroke();
+
+        ctx.oMoveTo(x2,y2);
+        x3=x2-lh2*Math.sin(ab+arh1+arh2);
+        y3=y2+lh2*Math.cos(ab+arh1+arh2);
+        ctx.oLineTo(x3,y3);
+        obj_aman.prh2={x:x3,y:y3};
+        ctx.stroke();
+
+        //开始画腿
+        x1=obj_aman.pb2.x;
+        y1=obj_aman.pb2.y;
+
+        ctx.oMoveTo(x1,y1);
+        x2=x1-lf1*Math.sin(ab+alf1);
+        y2=y1+lf1*Math.cos(ab+alf1);
+        ctx.oLineTo(x2,y2);
+        obj_aman.plf1={x:x2,y:y2};
+        ctx.stroke();
+
+        ctx.oMoveTo(x2,y2);
+        x3=x2-lf2*Math.sin(ab+alf1+alf2);
+        y3=y2+lf2*Math.cos(ab+alf1+alf2);
+        ctx.oLineTo(x3,y3);
+        obj_aman.plf2={x:x3,y:y3};
+        ctx.stroke();
+
+        ctx.oMoveTo(x1,y1);
+        x2=x1-lf1*Math.sin(ab+arf1);
+        y2=y1+lf1*Math.cos(ab+arf1);
+        ctx.oLineTo(x2,y2);
+        obj_aman.prf1={x:x2,y:y2};
+        ctx.stroke();
+
+        ctx.oMoveTo(x2,y2);
+        x3=x2-lf2*Math.sin(ab+arf1+arf2);
+        y3=y2+lf2*Math.cos(ab+arf1+arf2);
+        ctx.oLineTo(x3,y3);
+        obj_aman.prf2={x:x3,y:y3};
+        ctx.stroke();
+
+        count_draw++;
+        //,ab,alh1,alh2,arh1,arh2,alf1,alf2,arf1,arf2
+        obj_aman.ab=ab;
+        obj_aman.alh1=alh1;
+        obj_aman.alh2=alh2;
+        obj_aman.arh1=arh1;
+        obj_aman.arh2=arh2;
+        obj_aman.alf1=alf1;
+        obj_aman.alf2=alf2;
+        obj_aman.arf1=arf1;
+        obj_aman.arf2=arf2;
+        return obj_aman;
+
+    }
+    //第一只手(右手)的位置，第二只手的位置（可能为空），第一只手距矛头的距离，长矛在世界坐标系中距y轴负方向逆时针弧度
+    function DrawaSpear(ph1,ph2,d,a)
+    {
+        ctx.beginPath();
+        var obj_spear={}
+        var ls=60;
+        var ss=5;//矛头的每边长度
+        var as=Math.PI/6
+
+        if(ph2)//那么就不需要a
+        {
+            if((ph1.y-ph2.y)>=0)
+            {
+                a=Math.atan((ph1.x-ph2.x)/(ph1.y-ph2.y));
+            }
+            else
+            {
+                a=Math.PI+Math.atan((ph1.x-ph2.x)/(ph1.y-ph2.y));
+            }
+
+        }
+        var x1=ph1.x+d*Math.sin(a);
+        var y1=ph1.y+d*Math.cos(a);
+        var x2=ph1.x-(ls-d)*Math.sin(a);
+        var y2=ph1.y-(ls-d)*Math.cos(a);
+        ctx.oMoveTo(x1,y1);
+        ctx.oLineTo(x2,y2);
+        ctx.stroke();
+        obj_spear.pst={x:x2,y:y2};
+
+        var lsh=ss*Math.cos(as)*2
+        var x3=x1+lsh*Math.sin(a);
+        var y3=y1+lsh*Math.cos(a);
+        obj_spear.psh={x:x3,y:y3};
+
+        ctx.oMoveTo(x1,y1);
+        x2=x1+ss*Math.sin(a+as);
+        y2=y1+ss*Math.cos(a+as);
+        ctx.oLineTo(x2,y2);
+        ctx.oLineTo(x3,y3);
+        ctx.stroke();
+
+        ctx.oMoveTo(x1,y1);
+        x2=x1+ss*Math.sin(a-as);
+        y2=y1+ss*Math.cos(a-as);
+        ctx.oLineTo(x2,y2);
+        ctx.oLineTo(x3,y3);
+        ctx.stroke();
+
+        return obj_spear
+    }
+
+    var grid_original=DrawaMan(64,25,0,0,0,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6)
+    var spear_original=DrawaSpear(grid_original.prh2,grid_original.plh2,20);
+
+    var grid=DrawaMan(64,28,0,0,0,0.5235987755982988,-1.0471975511965976,-0.6981317007977318,0.17453292519943292,0.6981317007977318,-0.34906585039886584,-0.6981317007977318,1.0471975511965976)
+    var spear=DrawaSpear(grid.prh2,grid.plh2,26);
+
+    var grid=DrawaMan(64,31,0,0,0,0.5235987755982988,-1.5707963267948966,-0.8726646259971647,-0.17453292519943298,0.8726646259971647,-0.17453292519943292,-0.8726646259971647,1.5707963267948966)
+    var spear=DrawaSpear(grid.prh2,grid.plh2,33);
+
+    //先保持头部高度不变，看脚高了多少，然后再反过来调整头部高度
+    var grid_3=DrawaMan(64,35,0,0,0,Math.PI/6,-Math.PI*2/3,-Math.PI/3,-Math.PI/6,Math.PI/3,0,-Math.PI/3,Math.PI*2/3)
+    var spear_3=DrawaSpear(grid_3.prh2,grid_3.plh2,40);
+
+    var grid=DrawaMan(64,31,0,0,0,0.5235987755982988,-1.5707963267948966,-0.8726646259971647,-0.17453292519943298,0.8726646259971647,-0.17453292519943292,-0.8726646259971647,1.5707963267948966)
+    var spear=DrawaSpear(grid.prh2,grid.plh2,33);
+
+    var grid=DrawaMan(64,28,0,0,0,0.5235987755982988,-1.0471975511965976,-0.6981317007977318,0.17453292519943292,0.6981317007977318,-0.34906585039886584,-0.6981317007977318,1.0471975511965976)
+    var spear=DrawaSpear(grid.prh2,grid.plh2,26);
+
+    var grid_5=DrawaMan(64,25,0,0,0,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6)
+    var spear_5=DrawaSpear(grid_5.prh2,grid_5.plh2,20);
+
+    //行走
+    var grid_5=DrawaMan(64,27,0,0,0,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6,Math.PI/4,-Math.PI/4,-Math.PI/4,Math.PI/4)
+    var spear_5=DrawaSpear(grid_5.prh2,grid_5.plh2,20);
+    var grid_5=DrawaMan(64,25,0,0,0,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6)
+    var spear_5=DrawaSpear(grid_5.prh2,grid_5.plh2,20);
+
+
+
+    linearInterpolation([Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6,Math.PI/6,-Math.PI/6,-Math.PI/6,Math.PI/6]
+        ,[Math.PI/6,-Math.PI*2/3,-Math.PI/3,-Math.PI/6,Math.PI/3,0,-Math.PI/3,Math.PI*2/3],2)
+
+    function linearInterpolation(arrStart,arrEnd,count_inter)
+    {
+        var len=arrStart.length;
+        var arr_str=[];
+        for(var j=0;j<count_inter;j++)
+        {
+            arr_str.push("");
+        }
+        for(var i=0;i<len;i++)//对于每一个属性
+        {
+            var start=arrStart[i];
+            var end=arrEnd[i];
+
+            var step=(end-start)/(count_inter+1);
+            for(var j=0;j<count_inter;j++)//对于每一个插入的值
+            {
+                arr_str[j]+=(start+step*(j+1)+",");
+            }
+        }
+        return arr_str;
+
+    }
+
+</script>
+</html>
